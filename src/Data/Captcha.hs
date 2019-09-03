@@ -28,7 +28,7 @@ testCaptcha = do
   let ((_,im), _) = runState (newImage def) sm
   writePng "captcha.png" im
 
-newCaptcha :: State SMGen (String, ByteString)
+newCaptcha :: Monad m => StateT SMGen m (String, ByteString)
 newCaptcha = do
   (code, im) <- newImage def
   case encodeDynamicPng (ImageRGBA8 im) of
@@ -58,7 +58,7 @@ cWhite = PixelRGBA8 255 255 255 255
 instance Default CaptchaConfig where
   def = CaptchaConfig cBlack cWhite (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) font (82,32) 4
 
-newImage :: CaptchaConfig -> State SMGen ([Char],Image PixelRGBA8)
+newImage :: Monad m => CaptchaConfig -> StateT SMGen m ([Char],Image PixelRGBA8)
 newImage cc@CaptchaConfig{..} = do
   l0 <- replicateM 5 $ newNoiseCircle cc
   l1 <- replicateM 20 $ newNoiseLine cc
@@ -84,14 +84,14 @@ nextI v = do
   put seed'
   return (a `mod` v)
 
-newNoiseCircle :: CaptchaConfig -> State SMGen (Drawing px ())
+newNoiseCircle :: Monad m => CaptchaConfig -> StateT SMGen m (Drawing px ())
 newNoiseCircle CaptchaConfig{..} = do
   a <- nextF 0 (fst size)
   b <- nextF 0 (snd size)
   c <- nextF 0 (snd size `div` 10)
   return $ fill $ circle (V2 a b) c
 
-newNoiseLine :: CaptchaConfig -> State SMGen (Drawing px ())
+newNoiseLine :: Monad m => CaptchaConfig -> StateT SMGen m (Drawing px ())
 newNoiseLine CaptchaConfig{..} = do
   a <- nextF 0   (fst size)
   b <- nextF 0   (snd size)
@@ -99,7 +99,7 @@ newNoiseLine CaptchaConfig{..} = do
   h <- nextF 0.5 (fst size `div` 10)
   return $ fill $ line (V2 a b) (V2 (a + w) (b + h))
 
-newChar :: CaptchaConfig -> State SMGen [(Char, Drawing px ())]
+newChar :: Monad m => CaptchaConfig -> StateT SMGen m [(Char, Drawing px ())]
 newChar CaptchaConfig{..} = do
   let fsize = (realToFrac $ snd size) * 0.6
       ftop  = (realToFrac $ snd size) * 0.8
