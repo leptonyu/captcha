@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections   #-}
 module Data.Captcha(
     newCaptcha
   , CaptchaConfig(..)
@@ -11,6 +12,7 @@ import           Control.Monad.State
 import           Data.ByteString                     (ByteString)
 import qualified Data.ByteString.Base64              as B64
 import           Data.ByteString.Lazy                (toStrict)
+import           Data.Char                           (toLower)
 import           Data.Default
 import           Data.Word
 import           FileEmbedLzma
@@ -22,16 +24,16 @@ import           System.Random.SplitMix
 
 testCaptcha = do
   sm <- initSMGen
-  let (im, _) = newImage def sm
+  let ((_,im), _) = newImage def sm
   writePng "captcha.png" im
 
-newCaptcha :: IO (Word64, ByteString)
+newCaptcha :: IO (String, ByteString)
 newCaptcha = do
   sm <- initSMGen
-  let (im, s2) = newImage def sm
+  let ((code, im), _) = newImage def sm
   case encodeDynamicPng (ImageRGBA8 im) of
     Left  e -> error e
-    Right x -> return (fst (nextWord64 s2), B64.encode $ toStrict x)
+    Right x -> return (fmap toLower code, B64.encode $ toStrict x)
 
 data CaptchaConfig = CaptchaConfig
   { bgColor :: PixelRGBA8
@@ -56,16 +58,17 @@ cWhite = PixelRGBA8 255 255 255 255
 instance Default CaptchaConfig where
   def = CaptchaConfig cBlack cWhite (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) font (82,32) 4
 
-newImage :: CaptchaConfig -> SMGen -> (Image PixelRGBA8, SMGen)
+newImage :: CaptchaConfig -> SMGen -> (([Char],Image PixelRGBA8), SMGen)
 newImage cc@CaptchaConfig{..} = runState $ do
   l0 <- replicateM 5 $ newNoiseCircle cc
   l1 <- replicateM 20 $ newNoiseLine cc
   l2 <- newChar cc
   return
+    $ (fmap fst l2,)
     $ uncurry renderDrawing size feColor
     $ withTexture (uniformTexture bgColor)
     $ sequence_
-    $ l2 ++ l1 ++ l0
+    $ fmap snd l2 ++ l1 ++ l0
 
 nextF :: Monad m => Float -> Int -> StateT SMGen m Float
 nextF diff v = do
@@ -96,7 +99,7 @@ newNoiseLine CaptchaConfig{..} = do
   h <- nextF 0.5 (fst size `div` 10)
   return $ fill $ line (V2 a b) (V2 (a + w) (b + h))
 
-newChar :: CaptchaConfig -> State SMGen [Drawing px ()]
+newChar :: CaptchaConfig -> State SMGen [(Char, Drawing px ())]
 newChar CaptchaConfig{..} = do
   let fsize = (realToFrac $ snd size) * 0.6
       ftop  = (realToFrac $ snd size) * 0.8
@@ -109,6 +112,7 @@ newChar CaptchaConfig{..} = do
       r <- nextF 0.5 1
       let del = realToFrac (i-1) * fsize
       return
+        $ (c,)
         $ withTransformation (rotateCenter (r/4) $ V2 (fleft + del - fsize/ 2) (ftop + fsize/2))
         $ printTextAt
           fonts
