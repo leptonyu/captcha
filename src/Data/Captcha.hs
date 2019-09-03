@@ -22,6 +22,9 @@ import           Graphics.Rasterific.Texture
 import           Graphics.Rasterific.Transformations
 import           Graphics.Text.TrueType
 import           System.Random.SplitMix
+#if __GLASGOW_HASKELL__ < 804
+import           Data.Semigroup
+#endif
 
 testCaptcha = do
   sm <- initSMGen
