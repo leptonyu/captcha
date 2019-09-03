@@ -1,6 +1,7 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TupleSections     #-}
 module Data.Captcha(
     newCaptcha
   , CaptchaConfig(..)
@@ -24,16 +25,15 @@ import           System.Random.SplitMix
 
 testCaptcha = do
   sm <- initSMGen
-  let ((_,im), _) = newImage def sm
+  let ((_,im), _) = runState (newImage def) sm
   writePng "captcha.png" im
 
-newCaptcha :: IO (String, ByteString)
+newCaptcha :: State SMGen (String, ByteString)
 newCaptcha = do
-  sm <- initSMGen
-  let ((code, im), _) = newImage def sm
+  (code, im) <- newImage def
   case encodeDynamicPng (ImageRGBA8 im) of
     Left  e -> error e
-    Right x -> return (fmap toLower code, B64.encode $ toStrict x)
+    Right x -> return (fmap toLower code, "image/png;base64 " <> B64.encode (toStrict x))
 
 data CaptchaConfig = CaptchaConfig
   { bgColor :: PixelRGBA8
@@ -58,8 +58,8 @@ cWhite = PixelRGBA8 255 255 255 255
 instance Default CaptchaConfig where
   def = CaptchaConfig cBlack cWhite (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) font (82,32) 4
 
-newImage :: CaptchaConfig -> SMGen -> (([Char],Image PixelRGBA8), SMGen)
-newImage cc@CaptchaConfig{..} = runState $ do
+newImage :: CaptchaConfig -> State SMGen ([Char],Image PixelRGBA8)
+newImage cc@CaptchaConfig{..} = do
   l0 <- replicateM 5 $ newNoiseCircle cc
   l1 <- replicateM 20 $ newNoiseLine cc
   l2 <- newChar cc
@@ -119,9 +119,4 @@ newChar CaptchaConfig{..} = do
           (PointSize fsize)
           (V2 (fleft + del) ftop)
           [c]
-
-
-
-
-
 
