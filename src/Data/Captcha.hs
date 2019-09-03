@@ -54,7 +54,7 @@ cWhite :: PixelRGBA8
 cWhite = PixelRGBA8 255 255 255 255
 
 instance Default CaptchaConfig where
-  def = CaptchaConfig cBlack cWhite (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) font (200,75) 4
+  def = CaptchaConfig cBlack cWhite (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) font (82,32) 4
 
 newImage :: CaptchaConfig -> SMGen -> (Image PixelRGBA8, SMGen)
 newImage cc@CaptchaConfig{..} = runState $ do
